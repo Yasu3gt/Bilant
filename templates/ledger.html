@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}bilant | 家計簿{% endblock %}
+
+{% block content %}
+  <section class="rounded-2xl bg-white shadow-sm border p-6">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold">家計簿（{{ ym }}）</h1>
+        <p class="mt-1 text-gray-600 text-sm">当月の収支明細と集計です。</p>
+      </div>
+
+      <form method="get" class="flex items-center gap-2">
+        <label class="text-sm text-gray-600" for="month">月</label>
+        <input id="month" name="month" type="month" value="{{ ym }}" class="rounded-xl border px-3 py-2" />
+        <button class="rounded-xl bg-gray-900 text-white px-4 py-2 text-sm hover:opacity-90" type="submit">表示</button>
+      </form>
+    </div>
+
+    <div class="mt-6 grid gap-4 md:grid-cols-3">
+      <div class="rounded-2xl bg-gray-50 border p-4">
+        <div class="text-sm text-gray-500">収入合計</div>
+        <div class="mt-1 text-xl font-semibold">{{ "{:,.0f}".format(summary.income_total) }} 円</div>
+      </div>
+      <div class="rounded-2xl bg-gray-50 border p-4">
+        <div class="text-sm text-gray-500">支出合計</div>
+        <div class="mt-1 text-xl font-semibold">{{ "{:,.0f}".format(summary.expense_total) }} 円</div>
+      </div>
+      <div class="rounded-2xl bg-gray-50 border p-4">
+        <div class="text-sm text-gray-500">差額</div>
+        <div class="mt-1 text-xl font-semibold">{{ "{:,.0f}".format(summary.balance) }} 円</div>
+      </div>
+    </div>
+
+    <div class="mt-6 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-600 border-b">
+            <th class="py-2 pr-3">日付</th>
+            <th class="py-2 pr-3">区分</th>
+            <th class="py-2 pr-3">項目</th>
+            <th class="py-2 pr-3 text-right">金額</th>
+            <th class="py-2 pr-3">メモ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in items %}
+            <tr class="border-b last:border-b-0">
+              <td class="py-2 pr-3 whitespace-nowrap">{{ r.txn_date }}</td>
+              <td class="py-2 pr-3 whitespace-nowrap">{{ type_label[r.txn_type] }}</td>
+              <td class="py-2 pr-3 whitespace-nowrap">{{ r.category }}</td>
+              <td class="py-2 pr-3 text-right whitespace-nowrap">{{ "{:,.0f}".format(r.amount) }}</td>
+              <td class="py-2 pr-3">{{ r.memo or "" }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td class="py-6 text-gray-500" colspan="5">まだデータがありません。「収支を登録」から追加してください。</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-6">
+      <a
+        href="{{ url_for('transaction_new') }}"
+        class="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700"
+      >
+        収支を登録
+      </a>
+    </div>
+  </section>
+{% endblock %}
