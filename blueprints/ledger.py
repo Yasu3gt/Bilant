@@ -5,7 +5,7 @@ from repositories.transactions import (
     summarize_for_month,
 )
 
-bp = Blueprint("ledger", __name__, url_prefix="/ledger")
+ledger_bp = Blueprint("ledger", __name__, url_prefix="/ledger")
 
 
 TYPE_LABEL = {
@@ -13,7 +13,7 @@ TYPE_LABEL = {
     "expense": "支出",
 }
 
-@bp.get("")
+@ledger_bp.get("")
 def ledger():
     ym = request.args.get("month")
     if not ym:

@@ -2,7 +2,7 @@ from flask import Blueprint, redirect, render_template, request, url_for
 
 from repositories.transactions import insert_transaction
 
-bp = Blueprint("transactions", __name__, url_prefix="/transaction")
+transactions_bp = Blueprint("transactions", __name__, url_prefix="/transaction")
 
 CATEGORIES = [
     "住居費",
@@ -22,7 +22,7 @@ TXN_TYPES = [
     ("expense", "支出"),
 ]
 
-@bp.get("/new")
+@transactions_bp.get("/new")
 def new():
     form = {}
     errors = {}
@@ -34,7 +34,7 @@ def new():
         errors=errors,
     )
 
-@bp.post("/new")
+@transactions_bp.post("/new")
 def create():
     txn_type = request.form.get("txn_type", "")
     category = request.form.get("category", "")

@@ -4,9 +4,9 @@ from flask import Blueprint, render_template
 
 from repositories.transactions import summarize_for_month, list_transactions_for_month
 
-bp = Blueprint("home", __name__)
+home_bp = Blueprint("home", __name__)
 
-@bp.get("/")
+@home_bp.get("/")
 def index():
     today = date.today()
     ym = f"{today.year:04d}-{today.month:02d}"

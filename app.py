@@ -4,9 +4,9 @@ from flask import Flask
 from db.connection import close_db
 from db.schema import init_db
 
-from blueprints.home import bp as home_bp
-from blueprints.ledger import bp as ledger_bp
-from blueprints.transactions import bp as transactions_bp
+from blueprints.home import home_bp
+from blueprints.ledger import ledger_bp
+from blueprints.transactions import transactions_bp
 
 
 def create_app() -> Flask:
