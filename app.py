@@ -42,11 +42,6 @@ def create_app() -> Flask:
 
     os.makedirs(app.instance_path, exist_ok=True)
 
-    app.config.from_mapping(
-        DATABASE=os.path.join(app.instance_path, "bilant.db"),
-        SECRET_KEY="dev",  # 後で変更（CSRF等を入れる場合）
-    )
-
     app.teardown_appcontext(close_db)
 
     with app.app_context():
