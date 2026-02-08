@@ -1,39 +1,9 @@
-# repositories/transactions.py
 from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Dict, List, Tuple
 
 from db.connection import get_db
-
-
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS transactions (
-  id BIGSERIAL PRIMARY KEY,
-  txn_type TEXT NOT NULL CHECK (txn_type IN ('income','expense')),
-  category TEXT NOT NULL,
-  txn_date DATE NOT NULL,
-  amount INTEGER NOT NULL CHECK (amount >= 0),
-  memo TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_transactions_txn_date ON transactions(txn_date);
-CREATE INDEX IF NOT EXISTS idx_transactions_type_date ON transactions(txn_type, txn_date);
-"""
-
-
-def init_db() -> None:
-    """
-    Initialize DB schema (temporary place).
-    Note: Later we can move this into db/schema.py or migrations.
-    """
-    db = get_db()
-    with db.cursor() as cur:
-        cur.execute(SCHEMA_SQL)
-    db.commit()
-
 
 def _month_range(ym: str) -> Tuple[date, date]:
     """
@@ -53,7 +23,7 @@ def _month_range(ym: str) -> Tuple[date, date]:
 def insert_transaction(
     txn_type: str,
     category: str,
-    txn_date: str,  # 'YYYY-MM-DD'
+    txn_date: str,
     amount: int,
     memo: str = "",
 ) -> int:

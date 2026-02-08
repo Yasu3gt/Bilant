@@ -4,14 +4,13 @@ from datetime import date
 
 from flask import Flask, redirect, render_template, request, url_for
 
-# from db import close_db, init_db, insert_transaction, list_transactions_for_month, summarize_for_month
+from db.connection import close_db
+from db.schema import init_db
 from repositories.transactions import (
-    init_db,
     insert_transaction,
     list_transactions_for_month,
     summarize_for_month,
 )
-from db.connection import close_db
 
 import os
 
@@ -43,19 +42,12 @@ def create_app() -> Flask:
 
     os.makedirs(app.instance_path, exist_ok=True)
 
-    # SQLite file location (instance folder is writable and safe)
     app.config.from_mapping(
         DATABASE=os.path.join(app.instance_path, "bilant.db"),
         SECRET_KEY="dev",  # 後で変更（CSRF等を入れる場合）
     )
 
-    # DB lifecycle
     app.teardown_appcontext(close_db)
-
-    # @app.before_request
-    # def _ensure_db() -> None:
-    #     # MVP: リクエスト前に一度だけテーブルがあることを保証
-    #     init_db()
 
     with app.app_context():
         init_db()
