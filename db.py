@@ -1,19 +1,22 @@
-import os
-import sqlite3
-from datetime import datetime
+# db.py（PostgreSQL版）
+from __future__ import annotations
+
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+import psycopg
+from psycopg.rows import dict_row
 from flask import current_app, g
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS transactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id BIGSERIAL PRIMARY KEY,
   txn_type TEXT NOT NULL CHECK (txn_type IN ('income','expense')),
   category TEXT NOT NULL,
-  txn_date TEXT NOT NULL, -- YYYY-MM-DD
+  txn_date DATE NOT NULL,
   amount INTEGER NOT NULL CHECK (amount >= 0),
   memo TEXT,
-  created_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_transactions_txn_date ON transactions(txn_date);
@@ -21,24 +24,25 @@ CREATE INDEX IF NOT EXISTS idx_transactions_type_date ON transactions(txn_type, 
 """
 
 
-def _db_path() -> str:
-    """Return absolute path to the SQLite DB file."""
-    # Prefer Flask instance folder (safe for runtime writes)
-    db_path = current_app.config.get("DATABASE")
-    if db_path:
-        return db_path
-    instance_path = current_app.instance_path
-    os.makedirs(instance_path, exist_ok=True)
-    return os.path.join(instance_path, "bilant.db")
+def _month_range(ym: str) -> Tuple[date, date]:
+    """ym='YYYY-MM' -> (start, end) where end is first day of next month."""
+    y, m = ym.split("-")
+    y_i, m_i = int(y), int(m)
+    start = date(y_i, m_i, 1)
+    if m_i == 12:
+        end = date(y_i + 1, 1, 1)
+    else:
+        end = date(y_i, m_i + 1, 1)
+    return start, end
 
 
-def get_db() -> sqlite3.Connection:
-    """Get a sqlite3 connection for the current request."""
+def get_db() -> psycopg.Connection:
+    """Get a psycopg connection for the current request."""
     if "db" not in g:
-        conn = sqlite3.connect(_db_path())
-        conn.row_factory = sqlite3.Row
-        # Basic hardening / correctness
-        conn.execute("PRAGMA foreign_keys = ON")
+        dsn = current_app.config.get("DATABASE_URL")
+        if not dsn:
+            raise RuntimeError("DATABASE_URL is not set.")
+        conn = psycopg.connect(dsn, row_factory=dict_row)
         g.db = conn
     return g.db  # type: ignore[return-value]
 
@@ -51,65 +55,67 @@ def close_db(e: Optional[BaseException] = None) -> None:
 
 def init_db() -> None:
     db = get_db()
-    db.executescript(SCHEMA_SQL)
+    with db.cursor() as cur:
+        cur.execute(SCHEMA_SQL)
     db.commit()
 
 
 def insert_transaction(
     txn_type: str,
     category: str,
-    txn_date: str,
+    txn_date: str,  # 'YYYY-MM-DD'
     amount: int,
     memo: str = "",
 ) -> int:
     db = get_db()
-    created_at = datetime.now().isoformat(timespec="seconds")
-    cur = db.execute(
-        """
-        INSERT INTO transactions (txn_type, category, txn_date, amount, memo, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (txn_type, category, txn_date, amount, memo, created_at),
-    )
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO transactions (txn_type, category, txn_date, amount, memo)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (txn_type, category, txn_date, amount, memo),
+        )
+        new_id = cur.fetchone()["id"]
     db.commit()
-    return int(cur.lastrowid)
+    return int(new_id)
 
 
-def list_transactions_for_month(ym: str) -> List[sqlite3.Row]:
-    """List transactions for a given month (ym='YYYY-MM')."""
+def list_transactions_for_month(ym: str) -> List[Dict[str, Any]]:
+    start, end = _month_range(ym)
     db = get_db()
-    start = f"{ym}-01"
-    # End boundary: use SQLite date arithmetic to get first day of next month
-    rows = db.execute(
-        """
-        SELECT id, txn_type, category, txn_date, amount, memo, created_at
-        FROM transactions
-        WHERE txn_date >= ?
-          AND txn_date < date(?, '+1 month')
-        ORDER BY txn_date DESC, id DESC
-        """,
-        (start, start),
-    ).fetchall()
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, txn_type, category, txn_date, amount, memo, created_at
+            FROM transactions
+            WHERE txn_date >= %s AND txn_date < %s
+            ORDER BY txn_date DESC, id DESC
+            """,
+            (start, end),
+        )
+        rows = cur.fetchall()
     return list(rows)
 
 
 def summarize_for_month(ym: str) -> Dict[str, int]:
+    start, end = _month_range(ym)
     db = get_db()
-    start = f"{ym}-01"
-    row = db.execute(
-        """
-        SELECT
-          COALESCE(SUM(CASE WHEN txn_type='income' THEN amount END), 0) AS income_total,
-          COALESCE(SUM(CASE WHEN txn_type='expense' THEN amount END), 0) AS expense_total
-        FROM transactions
-        WHERE txn_date >= ?
-          AND txn_date < date(?, '+1 month')
-        """,
-        (start, start),
-    ).fetchone()
-
-    income_total = int(row["income_total"]) if row else 0
-    expense_total = int(row["expense_total"]) if row else 0
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COALESCE(SUM(CASE WHEN txn_type='income' THEN amount END), 0) AS income_total,
+              COALESCE(SUM(CASE WHEN txn_type='expense' THEN amount END), 0) AS expense_total
+            FROM transactions
+            WHERE txn_date >= %s AND txn_date < %s
+            """,
+            (start, end),
+        )
+        row = cur.fetchone()
+    income_total = int(row["income_total"])
+    expense_total = int(row["expense_total"])
     return {
         "income_total": income_total,
         "expense_total": expense_total,
