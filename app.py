@@ -4,7 +4,15 @@ from datetime import date
 
 from flask import Flask, redirect, render_template, request, url_for
 
-from db import close_db, init_db, insert_transaction, list_transactions_for_month, summarize_for_month
+# from db import close_db, init_db, insert_transaction, list_transactions_for_month, summarize_for_month
+from repositories.transactions import (
+    init_db,
+    insert_transaction,
+    list_transactions_for_month,
+    summarize_for_month,
+)
+from db.connection import close_db
+
 import os
 
 CATEGORIES = [
@@ -28,6 +36,11 @@ TXN_TYPES = [
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
 
+    app.config.from_mapping(
+        DATABASE_URL = os.environ.get("DATABASE_URL"),
+        SECRET_KEY = "dev"
+    )
+
     os.makedirs(app.instance_path, exist_ok=True)
 
     # SQLite file location (instance folder is writable and safe)
@@ -39,9 +52,12 @@ def create_app() -> Flask:
     # DB lifecycle
     app.teardown_appcontext(close_db)
 
-    @app.before_request
-    def _ensure_db() -> None:
-        # MVP: リクエスト前に一度だけテーブルがあることを保証
+    # @app.before_request
+    # def _ensure_db() -> None:
+    #     # MVP: リクエスト前に一度だけテーブルがあることを保証
+    #     init_db()
+
+    with app.app_context():
         init_db()
 
     @app.get("/")
@@ -132,11 +148,6 @@ def create_app() -> Flask:
 
 
 app = create_app()
-
-app.config.from_mapping(
-    DATABASE_URL = os.environ.get("DATABASE_URL"),
-    SECRET_KEY = "dev"
-)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
