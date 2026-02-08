@@ -11,14 +11,14 @@
 
     <div class="mt-6 flex flex-wrap gap-3">
       <a
-        href="{{ url_for('transaction_new') }}"
+        href="{{ url_for('transactions.new') }}"
         class="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700"
       >
         収支を登録
       </a>
 
       <a
-        href="{{ url_for('ledger') }}"
+        href="{{ url_for('ledger.ledger') }}"
         class="inline-flex items-center rounded-xl bg-white px-4 py-2 font-medium text-gray-800 border hover:bg-gray-50"
       >
         家計簿（当月）
